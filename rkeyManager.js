@@ -35,7 +35,11 @@ class RkeyManager {
 
   async fetchServerRkey() {
     return new Promise((resolve, reject) => {
-      fetch(this.serverUrl)
+      // fetch 默认没有超时，外部 rkey 服务持续不响应时
+      // getRkey() 会一直挂起，进而阻塞反撤回的图片下载与 IPC 转发
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      fetch(this.serverUrl, { signal: controller.signal })
         .then((response) => {
           if (!response.ok) {
             return reject(response.statusText); // 请求失败，返回错误信息
@@ -47,7 +51,8 @@ class RkeyManager {
         })
         .catch((error) => {
           reject(error);
-        });
+        })
+        .finally(() => clearTimeout(timer));
     });
   }
 }

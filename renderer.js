@@ -586,10 +586,12 @@ async function onLoad() {
   });
 
   var finder = setInterval(() => {
-    if (document.querySelector(".ml-list.list")) {
+    var targetNode =
+      document.querySelector(".ml-list.list") ||
+      document.querySelector(".chat-msg-area__vlist");
+    if (targetNode) {
       clearInterval(finder);
       console.log("[Anti-Recall]", "检测到聊天区域，已在当前页面加载反撤回");
-      const targetNode = document.querySelector(".ml-list.list");
       const config = {
         attributes: false,
         childList: true,

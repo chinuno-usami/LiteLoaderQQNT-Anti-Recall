@@ -117,6 +117,11 @@ class ImgDownloader {
     return new Promise((resolve, reject) => {
       const protocol = url.startsWith("https") ? https : http;
       const req = protocol.get(url);
+      // 没有超时的话，CDN 不响应时 Promise 永远不 settle，
+      // 会连带阻塞主进程向渲染进程转发的 IPC
+      req.setTimeout(15000, () => {
+        req.destroy(new Error("Download timeout: " + url));
+      });
       req.on("error", (error) => {
         this.output("Download error", error);
         reject(error);

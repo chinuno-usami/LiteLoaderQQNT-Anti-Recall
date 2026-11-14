@@ -326,7 +326,12 @@ function onBrowserWindowCreated(window) {
                     let msg = Object.assign({}, originalMsg.msg);//克隆
 
                     msg.isOnlineMsg = true;
-                    await imgDownloader.downloadPic(msg);
+                    // 下载图片是网络请求：最多等 3 秒，避免图片 CDN 无响应时
+                    // 把整个消息列表 IPC 卡住（会导致切换会话后聊天区不刷新）
+                    await Promise.race([
+                      imgDownloader.downloadPic(msg).catch((e) => output("Download pic error:", e)),
+                      new Promise((resolve) => setTimeout(resolve, 3000)),
+                    ]);
                     output(
                       "Detected recall, intercepted and recovered from " + fromName
                     );
@@ -437,8 +442,15 @@ function onBrowserWindowCreated(window) {
                     }
                   }
 
-                  await imgDownloader.downloadPic(olderMsg?.msg);
-                  await imgDownloader.downloadPic(olderMsgFromRecalledMsg?.msg);
+                  // 注意：图片下载是网络请求，绝对不能在这里 await。
+                  // patched_send 是异步函数，一旦在 await 处阻塞，
+                  // 后面的 original_send(...) 就不会执行，
+                  // 渲染进程收不到消息列表 IPC，
+                  // 表现就是「切换会话后聊天区还停留在上一个会话」。
+                  Promise.allSettled([
+                    imgDownloader.downloadPic(olderMsg?.msg),
+                    imgDownloader.downloadPic(olderMsgFromRecalledMsg?.msg),
+                  ]).catch((e) => output("Download pic error:", e));
 
                   args[1].cmdName = "none";
                   args[1].payload.msgList.pop();
